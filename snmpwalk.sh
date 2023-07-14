@@ -10,6 +10,8 @@ arg_input="N"
 arg_snmp="public"
 arg_version="2c"
 
+# Variables
+NAME_SUFFIX=$(/bin/date +%d-%m-%Y-%H:%M:%S)
 function header () {
 # header function  - used to print out the title of the script
 
@@ -49,40 +51,45 @@ echo "$fname --input ips.txt --version 1"
 echo "$fname --target 192.168.4.0/24 --snmp /home/user/com.txt"
 echo
 echo "--------------------------------------------------------------------------------------"
-echo
 }
 
 function active () {
 echo "[*] Getting active addresses..."
 
-if [ "$arg_input" == "N" ] && [ "$arg_target" != "N" ]
-	then nmap -sn $arg_target 2> /dev/null | grep -Eo "Nmap scan report.*" | grep -Eo "([0-9]{1,3}\.){3}[0-9]{1,3}" >> temporary-ips.txt
-elif [ "$arg_input" != "N" ] && [ "$arg_target" == "N" ]
-	then nmap -sn -iL $arg_input 2> /dev/null | grep -Eo "Nmap scan report.*" | grep -Eo "([0-9]{1,3}\.){3}[0-9]{1,3}" >> temporary-ips.txt
+if [ "$arg_input" == "N" ]
+	then nmap -sn "$arg_target" 2> /dev/null | grep -Eo "Nmap scan report.*" | grep -Eo "([0-9]{1,3}\.){3}[0-9]{1,3}" >> temporary-ips-"$NAME_SUFFIX".txt
+elif [ "$arg_input" != "N" ]
+	then nmap -sn -iL "$arg_input" 2> /dev/null | grep -Eo "Nmap scan report.*" | grep -Eo "([0-9]{1,3}\.){3}[0-9]{1,3}" >> temporary-ips-"$NAME_SUFFIX".txt
 else
 	echo "[*] Unknown error..."
 fi
 
-while read line;do
-	echo "[*] Checking snmp ports for $line...";
-	#masscan --rate=2000 -pU:161,162 $line 2> /dev/null | awk '{print $6}' > temporary-snmp.txt
-	nmap -sU -p161,162 --open -T4 $line 2> /dev/null | grep -Eo "Nmap scan report.*" | grep -Eo "([0-9]{1,3}\.){3}[0-9]{1,3}" >> temporary-snmp.txt
-done < temporary-ips.txt
+echo "[*] Checking snmp ports...";
 
+while IFS= read -r line;
+do
+	#masscan --rate=2000 -pU:161,162 "$line" 2> /dev/null | awk '{print $6}' > temporary-snmp.txt
+	nmap -sU -p161,162 --open -T4 "$line" 2> /dev/null | grep -Eo "Nmap scan report.*" | grep -Eo "([0-9]{1,3}\.){3}[0-9]{1,3}" >> temporary-snmp-"$NAME_SUFFIX".txt
+done < temporary-ips-"$NAME_SUFFIX".txt
 
-while read ip;do
+echo "--------------------------------------------------------------------------------------"
+echo -e "ip\tcommunity\tnote"
+echo "--------------------------------------------------------------------------------------"
+
+while IFS= read -r ip;
+do
 	if [ "$arg_snmp" == "public" ]
-		then snmpwalk -v $arg_version -c $arg_snmp $ip 2> /dev/null | head -n 1 > temporary-comm.txt;
-			sed -ie 's/^.* \"//g' temporary-comm.txt 2> /dev/null;sed -ie 's/\"$//' temporary-comm.txt 2> /dev/null;
-			echo -e "$ip\tpublic\t$(cat temporary-comm.txt)" | awk 'length($0)>36'
+		then snmpwalk -v "$arg_version" -c "$arg_snmp" "$ip" 2> /dev/null | head -n 1 > temporary-comm-"$NAME_SUFFIX".txt;
+			sed -ie 's/^.* \"//g' temporary-comm-"$NAME_SUFFIX".txt 2> /dev/null;sed -ie 's/\"$//' temporary-comm-"$NAME_SUFFIX".txt 2> /dev/null;
+			echo -e "$ip\tpublic\t$(cat temporary-comm-"$NAME_SUFFIX".txt 2> /dev/null)" | awk 'length($0)>36'
 	else
-		while read line; do
-			snmpwalk -v $arg_version -c $line $ip 2> /dev/null | head -n 1 > temporary-comm.txt;
-			sed -ie 's/^.* \"//g' temporary-comm.txt 2> /dev/null;sed -ie 's/\"$//' temporary-comm.txt 2> /dev/null;
-			echo -e "$ip\tpublic\t$(cat temporary-comm.txt)" | awk 'length($0)>36'
-		done < $arg_snmp
+		while IFS= read -r line; do
+			snmpwalk -v "$arg_version" -c "$line" "$ip" 2> /dev/null | head -n 1 > temporary-comm-"$NAME_SUFFIX".txt;
+			sed -ie 's/^.* \"//g' temporary-comm-"$NAME_SUFFIX".txt 2> /dev/null;sed -ie 's/\"$//' temporary-comm-"$NAME_SUFFIX".txt 2> /dev/null;
+			echo -e "$ip\t$line\t$(cat temporary-comm-"$NAME_SUFFIX".txt 2> /dev/null)" | awk 'length($0)>36'
+		done < "$arg_snmp"
 	fi
-done < temporary-snmp.txt
+done < temporary-snmp-"$NAME_SUFFIX".txt
 echo "[*] Done..."
 rm temporary-*
 }
