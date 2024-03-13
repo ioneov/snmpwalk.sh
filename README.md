@@ -1,13 +1,11 @@
-# snmpwalk.sh
-
 ## Description
 
 The bash script used for scan and parse SNMP communities for easy paste to excel.
 
-## Usage
+## Usage and Result
 
-![My Image](pics/ex_1.PNG)
+![My Image](my_git/snmpwalk.sh/pics/ex_1.PNG)
 
-## Result
-
-![My Image](pics/ex_2.PNG)
+|Switches|Example|
+|--|--|
+|<img src="pics/ex_1.PNG" alt="ex_1" height="200"/>|<img src="pics/ex_2.PNG" alt="ex_1" height="200"/>|
